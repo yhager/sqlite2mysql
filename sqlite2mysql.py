@@ -36,7 +36,7 @@ class SQLite3toMySQL:
         self._mysql_port = self._properties.get('mysql_port', 3306)
 
         self._mysql_integer_type = self._properties.get('mysql_integer_type', 'int(11)')
-        self._mysql_string_type = self._properties.get('mysql_string_type', 'varchar(300)')
+        self._mysql_string_type = self._properties.get('mysql_string_type', 'varchar(255)')
 
         self._sqlite = sqlite3.connect(self._sqlite_file)
         self._sqlite.row_factory = sqlite3.Row
@@ -69,8 +69,24 @@ class SQLite3toMySQL:
             exit(1)
 
     def _type(self, sqlite_type):
+        # https://www.sqlite.org/datatype3.html#determination_of_column_affinity
         t = sqlite_type.lower()
-        return self._mysql_string_type if t == 'text' or t == 'varchar' else self._mysql_integer_type
+        if 'int' in t:
+            # integer affinity
+            ret = 'tinyint' if t == 'tinyint' else self._mysql_integer_type
+        elif 'char' in t or 'clob' in t or 'text' in t:
+            # text affinity
+            ret = self._mysql_string_type if 'char' in t else 'text'
+        elif 'blob' in t or t == '':
+            # blob affinity
+            ret = 'blob'
+        elif 'real' in t or 'floa' in t or 'doub' in t:
+            # real affinity
+            ret = 'double'
+        else:
+            # numeric affinity
+            ret = t
+        return ret
 
     def _create_table(self, table_name):
         primary_key = ''
@@ -132,7 +148,7 @@ def main():
     parser.add_argument('--mysql-host', dest='mysql_host', default='localhost', help='MySQL host')
     parser.add_argument('--mysql-port', dest='mysql_port', default=3306, help='MySQL port')
     parser.add_argument('--mysql-integer-type', dest='mysql_integer_type', default='int(11)', help='MySQL default integer field type')
-    parser.add_argument('--mysql-string-type', dest='mysql_string_type', default='varchar(300)', help='MySQL default string field type')
+    parser.add_argument('--mysql-string-type', dest='mysql_string_type', default='varchar(255)', help='MySQL default string field type')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
